@@ -15,6 +15,7 @@ from functools import wraps
 
 from twisted.internet import defer, reactor
 from celery.contrib.twistedtools import DeferredResult
+from celery import states
 
 @deferred(timeout=2)
 def test_deferred_success_result():
@@ -38,3 +39,17 @@ def test_deferred_success_ready():
     d.addCallback(check_result)
     reactor.callLater(1, d.callback, 'Hello, world!')
     return d
+
+@deferred(timeout=2)
+def test_deferred_success_status():
+    d = defer.Deferred()
+    result = DeferredResult(d)
+
+    def check_result(message):
+        assert result.status == states.SUCCESS
+
+    d.addCallback(check_result)
+    reactor.callLater(1, d.callback, 'Hello, world!')
+    return d
+
+

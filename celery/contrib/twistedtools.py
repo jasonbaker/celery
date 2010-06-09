@@ -3,6 +3,7 @@ from threading import Event
 from celery.task.http import (HttpDispatchTask, GET_METHODS, MutableURL, 
                               URL as BaseURL)
 from celery.exceptions import TimeoutError
+from celery import states
 from twisted.web.client import getPage
 
 class DeferredResult(object):
@@ -64,6 +65,15 @@ class DeferredResult(object):
 
     def successful(self):
         return self.ready() and not isinstance(self.result, Exception)
+
+    @property
+    def status(self):
+        if not self.ready():
+            return states.STARTED
+        elif self.traceback:
+            return states.FAILURE
+        else:
+            return states.SUCCESS
 
 class TwistedHttpTask(HttpDispatchTask):
     @classmethod
