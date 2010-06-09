@@ -14,6 +14,11 @@ class DeferredResult(object):
         self.deferred = deferred
         self.deferred.addCallback(self.handle_response)
         self.deferred.addErrback(self.handle_error)
+        self.result = None
+        self.traceback = None
+
+    def revoke(self, *args, **kwargs):
+        raise NotImplementedError, "Cannot revoke deferred results"
 
     @property
     def ready(self):
@@ -38,6 +43,7 @@ class DeferredResult(object):
         The deferred's errback.
         """
         self.result = failure.value
+        self.traceback = failure.getTraceback()
         self.unblock()
 
     def wait(self, timeout=None):
@@ -54,6 +60,9 @@ class DeferredResult(object):
             return self.result 
 
     get = wait
+
+    def successful(self):
+        return self.ready and not isinstance(self.result, Exception)
 
 class TwistedHttpTask(HttpDispatchTask):
     @classmethod
