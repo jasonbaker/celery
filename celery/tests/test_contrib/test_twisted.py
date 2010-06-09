@@ -17,12 +17,24 @@ from twisted.internet import defer, reactor
 from celery.contrib.twistedtools import DeferredResult
 
 @deferred(timeout=2)
-def test_deferred_success():
+def test_deferred_success_result():
     d = defer.Deferred()
     result = DeferredResult(d)
 
     def check_result(message):
         assert result.result == message
+    d.addCallback(check_result)
+    reactor.callLater(1, d.callback, 'Hello, world!')
+    return d
+
+@deferred(timeout=2)
+def test_deferred_success_ready():
+    d = defer.Deferred()
+    result = DeferredResult(d)
+
+    def check_result(message):
+        assert result.ready
+
     d.addCallback(check_result)
     reactor.callLater(1, d.callback, 'Hello, world!')
     return d
