@@ -20,7 +20,6 @@ class DeferredResult(object):
     def revoke(self, *args, **kwargs):
         raise NotImplementedError, "Cannot revoke deferred results"
 
-    @property
     def ready(self):
         return self.event.is_set()
 
@@ -54,7 +53,7 @@ class DeferredResult(object):
         fails.
         """
         self.event.wait(timeout)
-        if not self.ready:
+        if not self.ready():
             # The above wait returned, but we're not ready yet.  We must have
             # timed out.
             raise TimeoutError
