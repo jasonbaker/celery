@@ -63,7 +63,7 @@ class DeferredResult(object):
     get = wait
 
     def successful(self):
-        return self.ready and not isinstance(self.result, Exception)
+        return self.ready() and not isinstance(self.result, Exception)
 
 class TwistedHttpTask(HttpDispatchTask):
     @classmethod
