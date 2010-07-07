@@ -3,6 +3,7 @@ import warnings
 from importlib import import_module
 
 from celery.loaders.base import BaseLoader
+from celery.exceptions import NotConfigured
 
 DEFAULT_CONFIG_MODULE = "celeryconfig"
 
@@ -19,9 +20,6 @@ DEFAULT_UNCONFIGURED_SETTINGS = {
     "CELERY_RESULT_BACKEND": "amqp",
 }
 
-
-class NotConfigured(UserWarning):
-    """Celery has not been configured, as no config module has been found."""
 
 
 def wanted_module_item(item):
