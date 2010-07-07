@@ -11,7 +11,6 @@ from celery import platform
 from celery import signals
 from celery.bin import celeryd as cd
 from celery.exceptions import ImproperlyConfigured
-from celery.utils import noop
 from celery.utils import patch
 from celery.utils.functional import wraps
 
@@ -33,7 +32,6 @@ def disable_stdouts(fun):
             sys.stderr = sys.__stderr__
 
     return disable
-
 
 
 class _WorkController(object):
@@ -143,7 +141,6 @@ class test_Worker(unittest.TestCase):
         self.assertTrue(worker_ready_sent[0])
 
 
-
 class test_funs(unittest.TestCase):
 
     @disable_stdouts
@@ -190,7 +187,6 @@ class test_funs(unittest.TestCase):
         finally:
             cd.Worker = p
             sys.argv = s
-
 
 
 class test_signal_handlers(unittest.TestCase):

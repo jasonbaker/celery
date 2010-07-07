@@ -16,6 +16,10 @@ from celery.task.schedules import schedule
 from celery.task.sets import TaskSet, subtask
 
 
+def _unpickle_task(name):
+    return tasks[name]
+
+
 class TaskType(type):
     """Metaclass for tasks.
 
@@ -217,6 +221,9 @@ class Task(object):
     def __call__(self, *args, **kwargs):
         return self.run(*args, **kwargs)
 
+    def __reduce__(self):
+        return (_unpickle_task, (self.name, ), None)
+
     def run(self, *args, **kwargs):
         """The body of the task executed by the worker.
 
@@ -261,7 +268,7 @@ class Task(object):
             exchange_type=None):
         """Get a celery task message publisher.
 
-        :rtype: :class:`celery.messaging.TaskPublisher`.
+        :rtype :class:`celery.messaging.TaskPublisher`:
 
         Please be sure to close the AMQP connection when you're done
         with this object, i.e.:
@@ -286,7 +293,7 @@ class Task(object):
             connect_timeout=conf.BROKER_CONNECTION_TIMEOUT):
         """Get a celery task message consumer.
 
-        :rtype: :class:`celery.messaging.TaskConsumer`.
+        :rtype :class:`celery.messaging.TaskConsumer`:
 
         Please be sure to close the AMQP connection when you're done
         with this object. i.e.:
@@ -308,7 +315,7 @@ class Task(object):
         :param \*args: positional arguments passed on to the task.
         :param \*\*kwargs: keyword arguments passed on to the task.
 
-        :returns: :class:`celery.result.AsyncResult`
+        :returns :class:`celery.result.AsyncResult`:
 
         """
         return self.apply_async(args, kwargs)
@@ -324,7 +331,7 @@ class Task(object):
 
         See :func:`celery.execute.apply_async` for more information.
 
-        :rtype: :class:`celery.result.AsyncResult`
+        :returns :class:`celery.result.AsyncResult`:
 
 
         """
@@ -406,7 +413,7 @@ class Task(object):
 
         :param args: positional arguments passed on to the task.
         :param kwargs: keyword arguments passed on to the task.
-        :rtype: :class:`celery.result.EagerResult`
+        :rtype :class:`celery.result.EagerResult`:
 
         See :func:`celery.execute.apply`.
 

@@ -5,7 +5,7 @@ from UserList import UserList
 from celery import conf
 from celery import registry
 from celery.datastructures import AttributeDict
-from celery.messaging import establish_connection, with_connection
+from celery.messaging import with_connection
 from celery.messaging import TaskPublisher
 from celery.result import TaskSetResult
 from celery.utils import gen_unique_id
@@ -215,4 +215,3 @@ class TaskSet(UserList):
             "TaskSet.task_name is deprecated and will be removed in 1.4",
             DeprecationWarning)
         return self._task_name
-

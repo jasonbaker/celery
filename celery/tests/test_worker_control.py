@@ -8,7 +8,7 @@ from celery.task.builtins import PingTask
 from celery.utils import gen_unique_id
 from celery.worker import control
 from celery.worker.buckets import FastQueue
-from celery.worker.revoke import revoked
+from celery.worker.state import revoked
 from celery.worker.scheduler import Scheduler
 
 hostname = socket.gethostname()
@@ -20,6 +20,7 @@ def mytask():
 
 
 class Dispatcher(object):
+    enabled = None
 
     def __init__(self, *args, **kwargs):
         self.sent = []
@@ -54,6 +55,7 @@ class test_ControlPanel(unittest.TestCase):
     def test_disable_events(self):
         listener = Listener()
         panel = self.create_panel(listener=listener)
+        listener.event_dispatcher.enabled = True
         panel.execute("disable_events")
         self.assertEqual(listener.event_dispatcher.enabled, False)
         self.assertIn("worker-offline", listener.event_dispatcher.sent)
@@ -61,14 +63,15 @@ class test_ControlPanel(unittest.TestCase):
     def test_enable_events(self):
         listener = Listener()
         panel = self.create_panel(listener=listener)
+        listener.event_dispatcher.enabled = False
         panel.execute("enable_events")
         self.assertEqual(listener.event_dispatcher.enabled, True)
         self.assertIn("worker-online", listener.event_dispatcher.sent)
 
     def test_dump_tasks(self):
-        tasks = "\n".join(self.panel.execute("dump_tasks"))
-        self.assertIn("mytask", tasks)
-        self.assertIn("rate_limit=200", tasks)
+        info = "\n".join(self.panel.execute("dump_tasks"))
+        self.assertIn("mytask", info)
+        self.assertIn("rate_limit=200", info)
 
     def test_dump_schedule(self):
         listener = Listener()
@@ -80,14 +83,11 @@ class test_ControlPanel(unittest.TestCase):
     def test_dump_reserved(self):
         listener = Listener()
         panel = self.create_panel(listener=listener)
-        tasks = "\n".join(panel.execute("dump_reserved"))
-        self.assertIn("the quick brown fox", tasks)
+        info = "\n".join(panel.execute("dump_reserved"))
+        self.assertIn("the quick brown fox", info)
         listener.ready_queue = FastQueue()
-        tasks = "\n".join(panel.execute("dump_reserved"))
-        self.assertFalse(tasks)
-
-    def test_dump_reserved(self):
-        self.panel.execute("dump_reserved")
+        info = "\n".join(panel.execute("dump_reserved"))
+        self.assertFalse(info)
 
     def test_rate_limit_when_disabled(self):
         conf.DISABLE_RATE_LIMITS = True
@@ -184,7 +184,6 @@ class test_ControlPanel(unittest.TestCase):
         m = {"command": "shutdown",
              "destination": hostname}
         self.assertRaises(SystemExit, self.panel.dispatch_from_message, m)
-
 
     def test_panel_reply(self):
 

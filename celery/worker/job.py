@@ -4,15 +4,15 @@ import socket
 import warnings
 
 from celery import conf
-from celery import platform
 from celery import log
+from celery import platform
+from celery.datastructures import ExceptionInfo
+from celery.execute.trace import TaskTrace
+from celery.loaders import current_loader
+from celery.registry import tasks
 from celery.utils import noop, kwdict, fun_takes_kwargs
 from celery.utils.mail import mail_admins
-from celery.worker.revoke import revoked
-from celery.loaders import current_loader
-from celery.execute.trace import TaskTrace
-from celery.registry import tasks
-from celery.datastructures import ExceptionInfo
+from celery.worker import state
 
 # pep8.py borks on a inline signature separator and
 # says "trailing whitespace" ;)
@@ -65,7 +65,7 @@ class WorkerTaskTrace(TaskTrace):
     :param args: List of positional args to pass on to the function.
     :param kwargs: Keyword arguments mapping to pass on to the function.
 
-    :returns: the function return value on success, or
+    :returns: the evaluated functions return value on success, or
         the exception instance on failure.
 
     """
@@ -94,20 +94,19 @@ class WorkerTaskTrace(TaskTrace):
     def execute(self):
         """Execute, trace and store the result of the task."""
         self.loader.on_task_init(self.task_id, self.task)
-        self.task.backend.process_cleanup()
         if self.task.track_started:
             self.task.backend.mark_as_started(self.task_id)
-        return super(WorkerTaskTrace, self).execute()
+        try:
+            return super(WorkerTaskTrace, self).execute()
+        finally:
+            self.task.backend.process_cleanup()
+            self.loader.on_process_cleanup()
 
     def handle_success(self, retval, *args):
         """Handle successful execution."""
         if not self.task.ignore_result:
             self.task.backend.mark_as_done(self.task_id, retval)
         return self.super.handle_success(retval, *args)
-
-    def handle_after_return(self, status, retval, type_, tb, strtb):
-        self.loader.on_task_return(self.task_id, self.task, status, retval)
-        self.super.handle_after_return(status, retval, type_, tb, strtb)
 
     def handle_retry(self, exc, type_, tb, strtb):
         """Handle retry exception."""
@@ -224,16 +223,10 @@ class TaskRequest(object):
 
         self.task = tasks[self.task_name]
 
-    def __repr__(self):
-        return '<%s: {name:"%s", id:"%s", args:"%s", kwargs:"%s"}>' % (
-                self.__class__.__name__,
-                self.task_name, self.task_id,
-                self.args, self.kwargs)
-
     def revoked(self):
         if self._already_revoked:
             return True
-        if self.task_id in revoked:
+        if self.task_id in state.revoked:
             self.logger.warn("Skipping revoked task: %s[%s]" % (
                 self.task_name, self.task_id))
             self.send_event("task-revoked", uuid=self.task_id)
@@ -251,7 +244,7 @@ class TaskRequest(object):
         :raises UnknownTaskError: if the message does not describe a task,
             the message is also rejected.
 
-        :returns: :class:`TaskRequest` instance.
+        :returns :class:`TaskRequest`:
 
         """
         task_name = message_data["task"]
@@ -345,8 +338,6 @@ class TaskRequest(object):
 
         :keyword logfile: The logfile used by the task.
 
-        :returns :class:`multiprocessing.AsyncResult` instance.
-
         """
         if self.revoked():
             return
@@ -362,6 +353,7 @@ class TaskRequest(object):
         return result
 
     def on_accepted(self):
+        state.task_accepted(self)
         if not self.task.acks_late:
             self.acknowledge()
         self.send_event("task-started", uuid=self.task_id)
@@ -369,6 +361,7 @@ class TaskRequest(object):
             self.task_name, self.task_id))
 
     def on_timeout(self, soft):
+        state.task_ready(self)
         if soft:
             self.logger.warning("Soft time limit exceeded for %s[%s]" % (
                 self.task_name, self.task_id))
@@ -384,6 +377,7 @@ class TaskRequest(object):
     def on_success(self, ret_value):
         """The handler used if the task was successfully processed (
         without raising an exception)."""
+        state.task_ready(self.task_name)
 
         if self.task.acks_late:
             self.acknowledge()
@@ -400,6 +394,7 @@ class TaskRequest(object):
 
     def on_failure(self, exc_info):
         """The handler used if the task raised an exception."""
+        state.task_ready(self.task_name)
 
         if self.task.acks_late:
             self.acknowledge()
@@ -426,3 +421,25 @@ class TaskRequest(object):
             subject = self.email_subject.strip() % context
             body = self.email_body.strip() % context
             mail_admins(subject, body, fail_silently=True)
+
+    def __repr__(self):
+        return '<%s: {name:"%s", id:"%s", args:"%s", kwargs:"%s"}>' % (
+                self.__class__.__name__,
+                self.task_name, self.task_id,
+                self.args, self.kwargs)
+
+    def info(self, safe=False):
+        args = self.args
+        kwargs = self.kwargs
+        if not safe:
+            args = repr(args)
+            kwargs = repr(self.kwargs)
+
+        return {"id": self.task_id,
+                "name": self.task_name,
+                "args": args,
+                "kwargs": kwargs,
+                "hostname": self.hostname,
+                "time_start": self.time_start,
+                "acknowledged": self.acknowledged,
+                "delivery_info": self.delivery_info}

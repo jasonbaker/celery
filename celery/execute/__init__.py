@@ -79,7 +79,8 @@ def apply_async(task, args=None, kwargs=None, countdown=None, eta=None,
     replaced by a local :func:`apply` call instead.
 
     """
-    router = router or Router(conf.ROUTES, conf.get_queues())
+    router = router or Router(conf.ROUTES, conf.get_queues(),
+                              conf.CREATE_MISSING_QUEUES)
 
     if conf.ALWAYS_EAGER:
         return apply(task, args, kwargs, task_id=task_id)
@@ -140,7 +141,7 @@ def delay_task(task_name, *args, **kwargs):
     :raises celery.exceptions.NotRegistered: exception if no such task
         has been registered in the task registry.
 
-    :returns: :class:`celery.result.AsyncResult`.
+    :returns :class:`celery.result.AsyncResult`:
 
     Example
 

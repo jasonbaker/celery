@@ -3,6 +3,7 @@ import unittest2 as unittest
 
 from celery import conf
 from celery import routes
+from celery.utils import maybe_promise
 from celery.utils.functional import wraps
 from celery.exceptions import QueueNotFound
 
@@ -62,6 +63,10 @@ class test_MapRoute(unittest.TestCase):
 
 class test_lookup_route(unittest.TestCase):
 
+    def test_init_queues(self):
+        router = routes.Router(queues=None)
+        self.assertDictEqual(router.queues, {})
+
     @with_queues(foo=a_queue, bar=b_queue)
     def test_lookup_takes_first(self):
         R = routes.prepare(({"celery.ping": "bar"},
@@ -80,3 +85,24 @@ class test_lookup_route(unittest.TestCase):
                 router.route({}, "celery.ping",
                     args=[1, 2], kwargs={}))
         self.assertEqual(router.route({}, "celery.poza"), {})
+
+
+class test_prepare(unittest.TestCase):
+
+    def test_prepare(self):
+        from celery.datastructures import LocalCache
+        o = object()
+        R = [{"foo": "bar"},
+                  "celery.datastructures.LocalCache",
+                  o]
+        p = routes.prepare(R)
+        self.assertIsInstance(p[0], routes.MapRoute)
+        self.assertIsInstance(maybe_promise(p[1]), LocalCache)
+        self.assertIs(p[2], o)
+
+        self.assertEqual(routes.prepare(o), [o])
+
+    def test_prepare_item_is_dict(self):
+        R = {"foo": "bar"}
+        p = routes.prepare(R)
+        self.assertIsInstance(p[0], routes.MapRoute)

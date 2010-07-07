@@ -14,7 +14,6 @@ from celery import conf
 from celery import signals
 from celery.utils import gen_unique_id, mitemgetter, noop
 from celery.utils.functional import wraps
-from celery.loaders import load_settings
 
 
 MSG_OPTIONS = ("mandatory", "priority", "immediate",
@@ -25,7 +24,7 @@ extract_msg_options = lambda d: dict(zip(MSG_OPTIONS, get_msg_options(d)))
 default_queue = conf.get_queues()[conf.DEFAULT_QUEUE]
 
 _queues_declared = False
-_exchanges_declared = {}
+_exchanges_declared = set()
 
 
 class TaskPublisher(Publisher):
@@ -45,9 +44,12 @@ class TaskPublisher(Publisher):
             consumers = get_consumer_set(self.connection)
             consumers.close()
             _queues_declared = True
+        self.declare()
+
+    def declare(self):
         if self.exchange not in _exchanges_declared:
-            self.declare()
-            _exchanges_declared[self.exchange] = True
+            super(TaskPublisher, self).declare()
+            _exchanges_declared.add(self.exchange)
 
     def delay_task(self, task_name, task_args=None, task_kwargs=None,
             countdown=None, eta=None, task_id=None, taskset_id=None, **kwargs):
@@ -173,6 +175,8 @@ class ControlReplyPublisher(Publisher):
     exchange = "celerycrq"
     exchange_type = "direct"
     delivery_mode = "non-persistent"
+    durable = False
+    auto_delete = True
 
 
 class BroadcastPublisher(Publisher):
@@ -269,6 +273,6 @@ def get_consumer_set(connection, queues=None, **options):
 @with_connection
 def reply(data, exchange, routing_key, connection=None, connect_timeout=None,
         **kwargs):
-    pub = Publisher(connection, exchange=exchange,
+    pub = ControlReplyPublisher(connection, exchange=exchange,
                     routing_key=routing_key, **kwargs)
     pub.send(data)

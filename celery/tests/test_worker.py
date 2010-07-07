@@ -353,7 +353,7 @@ class test_CarrotListener(unittest.TestCase):
                            kwargs={}, id=id)
         l.event_dispatcher = MockEventDispatcher()
         l.receive_message(c.decode(), c)
-        from celery.worker.revoke import revoked
+        from celery.worker.state import revoked
         self.assertIn(id, revoked)
 
         l.receive_message(t.decode(), t)
@@ -448,9 +448,6 @@ class test_CarrotListener(unittest.TestCase):
         self.assertRaises(KeyError, l.start)
         self.assertTrue(called_back[0])
         self.assertEqual(l.iterations, 1)
-
-
-
 
 
 class test_WorkController(unittest.TestCase):

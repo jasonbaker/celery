@@ -14,14 +14,13 @@ from celery.datastructures import ExceptionInfo
 from celery.decorators import task as task_dec
 from celery.exceptions import RetryTaskError, NotRegistered
 from celery.log import setup_logger
-from celery.registry import tasks
 from celery.result import AsyncResult
 from celery.task.base import Task
 from celery.utils import gen_unique_id
 from celery.worker.job import WorkerTaskTrace, TaskRequest
 from celery.worker.job import execute_and_trace, AlreadyExecutedError
 from celery.worker.job import InvalidTaskError
-from celery.worker.revoke import revoked
+from celery.worker.state import revoked
 
 from celery.tests.compat import catch_warnings
 from celery.tests.utils import execute_context
@@ -43,7 +42,7 @@ def mytask(i, **kwargs):
     return i ** i
 
 
-@task_dec()
+@task_dec # traverses coverage for decorator without parens
 def mytask_no_kwargs(i):
     return i ** i
 
@@ -86,7 +85,7 @@ class test_WorkerTaskTrace(unittest.TestCase):
     def test_marked_as_started(self):
         mytask.track_started = True
         try:
-            ret = jail(gen_unique_id(), mytask.name, [2], {})
+            jail(gen_unique_id(), mytask.name, [2], {})
         finally:
             mytask.track_started = False
 

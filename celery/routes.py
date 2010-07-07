@@ -1,5 +1,5 @@
 from celery.exceptions import QueueNotFound
-from celery.utils import instantiate, firstmethod
+from celery.utils import instantiate, firstmethod, mpromise
 
 _first_route = firstmethod("route_for_task")
 
@@ -77,13 +77,9 @@ def prepare(routes):
         if isinstance(route, dict):
             return MapRoute(route)
         if isinstance(route, basestring):
-            return instantiate(route)
+            return mpromise(instantiate, route)
         return route
 
-    if not hasattr(routes, "__iter__"):
+    if not isinstance(routes, (list, tuple)):
         routes = (routes, )
     return map(expand_route, routes)
-
-
-
-

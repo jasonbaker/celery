@@ -6,7 +6,7 @@ from celery import conf
 from celery.task import Task
 from celery.task.sets import subtask, TaskSet
 
-from celery.tests.utils import execute_context, with_eager_tasks
+from celery.tests.utils import execute_context
 from celery.tests.compat import catch_warnings
 
 
@@ -126,7 +126,6 @@ class test_TaskSet(unittest.TestCase):
         ts = TaskSet([MockTask.subtask((i, i))
                         for i in (2, 4, 8)])
         self.assertEqual(len(ts), 3)
-
 
     def test_respects_ALWAYS_EAGER(self):
 

@@ -3,8 +3,10 @@ from datetime import datetime
 from celery import conf
 from celery.backends import default_backend
 from celery.registry import tasks
+from celery.serialization import pickle
 from celery.utils import timeutils
-from celery.worker.revoke import revoked
+from celery.worker import state
+from celery.worker.state import revoked
 from celery.worker.control.registry import Panel
 
 TASK_INFO_FIELDS = ("exchange", "routing_key", "rate_limit")
@@ -28,19 +30,23 @@ def revoke(panel, task_id, task_name=None, **kwargs):
 @Panel.register
 def enable_events(panel):
     dispatcher = panel.listener.event_dispatcher
-    dispatcher.enable()
-    dispatcher.send("worker-online")
-    panel.logger.warn("Events enabled by remote.")
-    return {"ok": "events enabled"}
+    if not dispatcher.enabled:
+        dispatcher.enable()
+        dispatcher.send("worker-online")
+        panel.logger.warn("Events enabled by remote.")
+        return {"ok": "events enabled"}
+    return {"ok": "events already enabled"}
 
 
 @Panel.register
 def disable_events(panel):
     dispatcher = panel.listener.event_dispatcher
-    dispatcher.send("worker-offline")
-    dispatcher.disable()
-    panel.logger.warn("Events disabled by remote.")
-    return {"ok": "events disabled"}
+    if dispatcher.enabled:
+        dispatcher.send("worker-offline")
+        dispatcher.disable()
+        panel.logger.warn("Events disabled by remote.")
+        return {"ok": "events disabled"}
+    return {"ok": "events already disabled"}
 
 
 @Panel.register
@@ -110,6 +116,26 @@ def dump_reserved(panel, **kwargs):
     panel.logger.info("* Dump of currently reserved tasks:\n%s" % (
                             "\n".join(info, )))
     return info
+
+
+@Panel.register
+def dump_active(panel, **kwargs):
+    from celery.worker.state import active
+    return active
+
+
+@Panel.register
+def stats(panel, safe=False, **kwargs):
+    active_requests = [request.info(safe=safe)
+                            for request in state.active_requests]
+    return {"active": active_requests,
+            "total": state.total_count,
+            "pool": panel.listener.pool.info}
+
+
+@Panel.register
+def dump_revoked(panel, **kwargs):
+    return list(state.revoked)
 
 
 @Panel.register
